@@ -5,58 +5,111 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: black; overflow: hidden; width: 100vw; height: 100vh; }
+    body { background: black; overflow: hidden; width: 100vw; height: 100vh; font-family: sans-serif; }
+    
+    /* Control bar to upload images */
+    .controls {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px 20px;
+      border-radius: 8px;
+      backdrop-filter: blur(5px);
+    }
+
+    .controls label {
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      background: #333;
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid #555;
+      transition: background 0.2s;
+    }
+
+    .controls label:hover {
+      background: #555;
+    }
+
+    .controls input[type="file"] {
+      display: none;
+    }
+
     .photo {
       position: absolute;
       width: 150px;
       height: 150px;
       object-fit: cover;
       display: none;
-      border-radius: 50%; /* Optional: Makes the bounding boxes round to match circular collision physics */
+      border-radius: 50%;
     }
   </style>
 </head>
 <body>
 
-  <img class="photo" src="photo1.jpg">
-  <img class="photo" src="photo2.jpg">
+  <div class="controls">
+    <label>
+      Select Image 1
+      <input type="file" id="upload1" accept="image/*">
+    </label>
+    <label>
+      Select Image 2
+      <input type="file" id="upload2" accept="image/*">
+    </label>
+  </div>
+
+  <img class="photo" id="img1">
+  <img class="photo" id="img2">
 
   <script>
     const SIZE = 150;
     const SPEED = 3;
 
-    const imgs = Array.from(document.querySelectorAll('.photo'));
-    const balls = [];
+    const balls = [
+      { el: document.getElementById('img1'), x: 0, y: 0, dx: 0, dy: 0, active: false },
+      { el: document.getElementById('img2'), x: 0, y: 0, dx: 0, dy: 0, active: false }
+    ];
 
-    imgs.forEach((img) => {
-      img.onload = () => {
-        img.style.display = 'block';
-        balls.push({
-          el: img,
-          x: Math.random() * (window.innerWidth  - SIZE),
-          y: Math.random() * (window.innerHeight - SIZE),
-          dx: (Math.random() < 0.5 ? 1 : -1) * (SPEED + Math.random() * 2),
-          dy: (Math.random() < 0.5 ? 1 : -1) * (SPEED + Math.random() * 2),
-        });
+    function setupBall(ball, src) {
+      ball.el.src = src;
+      ball.el.onload = () => {
+        ball.el.style.display = 'block';
+        ball.x = Math.random() * (window.innerWidth - SIZE);
+        ball.y = Math.random() * (window.innerHeight - SIZE);
+        ball.dx = (Math.random() < 0.5 ? 1 : -1) * (SPEED + Math.random() * 2);
+        ball.dy = (Math.random() < 0.5 ? 1 : -1) * (SPEED + Math.random() * 2);
+        ball.active = true;
       };
-      img.onerror = () => { img.remove(); };
-      
-      // If image is already cached/loaded instantly
-      if (img.complete && img.naturalWidth !== 0) {
-        img.onload();
-      }
+    }
+
+    // Handle File Inputs
+    document.getElementById('upload1').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) setupBall(balls[0], URL.createObjectURL(file));
+    });
+
+    document.getElementById('upload2').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) setupBall(balls[1], URL.createObjectURL(file));
     });
 
     function collide(a, b) {
       const ax = a.x + SIZE/2, ay = a.y + SIZE/2;
       const bx = b.x + SIZE/2, by = b.y + SIZE/2;
       const dist = Math.sqrt((ax-bx)**2 + (ay-by)**2);
+
       if (dist < SIZE && dist > 0) {
-        // Swap velocities (simple elastic collision)
+        // Elastic collision velocity swap
         [a.dx, b.dx] = [b.dx, a.dx];
         [a.dy, b.dy] = [b.dy, a.dy];
 
-        // Push apart so they don't stick together
+        // Separation to prevent sticking
         const overlap = SIZE - dist;
         const nx = (ax - bx) / dist;
         const ny = (ay - by) / dist;
@@ -71,7 +124,9 @@
       const W = window.innerWidth;
       const H = window.innerHeight;
 
-      for (const b of balls) {
+      const activeBalls = balls.filter(b => b.active);
+
+      for (const b of activeBalls) {
         b.x += b.dx;
         b.y += b.dy;
 
@@ -84,9 +139,8 @@
         b.el.style.top  = b.y + 'px';
       }
 
-      // Check collision between the two balls
-      if (balls.length >= 2) {
-        collide(balls[0], balls[1]);
+      if (activeBalls.length === 2) {
+        collide(activeBalls[0], activeBalls[1]);
       }
 
       requestAnimationFrame(loop);
